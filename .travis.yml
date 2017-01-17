@@ -24,6 +24,6 @@ after_success:
     fi
   - if [ "$TRAVIS_BRANCH" == "develop" ]; then
     docker login -u="$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
-    docker tag teambrookie/showrss teambrookie/showrss:experimental
+    docker tag teambrookie/showrss teambrookie/showrss:experimental;
     docker push teambrookie/showrss:experimental;
     fi
