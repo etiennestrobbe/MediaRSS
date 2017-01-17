@@ -12,6 +12,7 @@ import (
 	"github.com/teambrookie/showrss/dao"
 	"github.com/teambrookie/showrss/handlers"
 	"github.com/teambrookie/showrss/torrent"
+	"github.com/zabawaba99/firego"
 
 	"flag"
 
@@ -57,6 +58,11 @@ func main() {
 		log.Fatalln("BETASERIES_KEY must be set in env")
 	}
 
+	fireDatabaseSecret := os.Getenv("FIREBASE_DATABASE_SECRET")
+	if fireDatabaseSecret == "" {
+		log.Fatalln("FIREBASE_DATABASE_SECRET must be set in env")
+	}
+
 	episodeProvider := betaseries.Betaseries{ApiKey: apiKey}
 
 	log.Println("Starting server ...")
@@ -74,6 +80,9 @@ func main() {
 		log.Fatalln("Error when creating bucket")
 	}
 
+	//Firebase initialization
+	f := firego.New("https://showrss-64e4b.firebaseio.com", nil)
+	f.Auth(fireDatabaseSecret)
 	// Worker stuff
 	log.Println("Starting worker ...")
 	jobs := make(chan dao.Episode, 1000)
@@ -83,7 +92,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handlers.HelloHandler)
-	mux.Handle("/auth", handlers.AuthHandler(episodeProvider))
+	mux.Handle("/auth", handlers.AuthHandler(episodeProvider, f))
 	mux.Handle("/refresh", handlers.RefreshHandler(store, episodeProvider, jobs))
 	mux.Handle("/episodes", handlers.EpisodeHandler(store))
 	mux.Handle("/rss", handlers.RSSHandler(store, episodeProvider))
