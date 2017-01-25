@@ -55,13 +55,34 @@ func episodeWorker(users <-chan string, torrents chan<- betaseries.Episode, beta
 		episodes, _ := betaseries.Episodes(token)
 		var ids []int
 		for _, episode := range episodes {
-			epRef, _ := firebase.Ref(fmt.Sprintf("episodes/%d", episode.ID))
-			epRef.Set(episode)
+
+			var data interface{}
+			torrentRef, _ := firebase.Ref(fmt.Sprintf("torrents/%d", episode.ID))
+			err := torrentRef.Value(&data)
+			if err != nil {
+				log.Println(err)
+			}
+			if data == nil {
+				log.Println(episode.Name + " don't exist yet")
+				epRef, _ := firebase.Ref(fmt.Sprintf("episodes/%d", episode.ID))
+				epRef.Set(episode)
+				torrents <- episode
+			} else {
+				log.Println(episode.Name + " exist already")
+			}
+
 			ids = append(ids, episode.ID)
-			torrents <- episode
+
 		}
 		episodesRef, _ := firebase.Ref(fmt.Sprintf("users/%s/episodes", user))
 		episodesRef.Set(ids)
+	}
+}
+
+func rssWorker(limiter <-chan time.Time) {
+	for {
+		<-limiter
+		log.Println("LOL")
 	}
 }
 
@@ -83,7 +104,6 @@ func main() {
 
 	log.Println("Starting server ...")
 	log.Printf("HTTP service listening on %s", *httpAddr)
-	log.Println("Connecting to db ...")
 
 	//Firebase initialization
 	f := firego.New("https://showrss-64e4b.firebaseio.com", nil)
@@ -94,6 +114,14 @@ func main() {
 	torrentJobs := make(chan betaseries.Episode, 1000)
 	go torrentWorker(torrentJobs, f)
 	go episodeWorker(betaseriesJobs, torrentJobs, episodeProvider, f)
+
+	rssLimiter := make(chan time.Time, 1)
+	go func() {
+		for t := range time.Tick(time.Second * 5) {
+			rssLimiter <- t
+		}
+	}()
+	go rssWorker(rssLimiter)
 
 	errChan := make(chan error, 10)
 
