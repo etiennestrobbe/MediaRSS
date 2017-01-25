@@ -36,6 +36,8 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Username: username,
 		Token:    token,
 	}
+
+	// Save the user and his token to Firebase RealTimeDatabase
 	usersRef, err := h.firebase.Ref("users/" + username)
 	usersRef.Set(response)
 	w.Header().Set("Content-Type", "application/json")
