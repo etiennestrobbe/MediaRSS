@@ -1,29 +1,23 @@
 sudo: required
-
 language: go
-
 services:
-  - docker
-
+- docker
 go:
-  - 1.6.x
-
+- 1.6.x
 install:
-  - go get github.com/braintree/manners
-  - go get github.com/qopher/go-torrentapi
-  - go get github.com/boltdb/bolt
-  - go get github.com/gorilla/feeds
-  - go get github.com/zabawaba99/firego
-  
+- go get github.com/braintree/manners
+- go get github.com/qopher/go-torrentapi
+- go get github.com/boltdb/bolt
+- go get github.com/gorilla/feeds
+- go get github.com/zabawaba99/firego
 after_success:
-  - CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o showrss .
-  - docker build -t teambrookie/showrss .
-  - if [ "$TRAVIS_BRANCH" == "master" ]; then
-    docker login -u="$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
-    docker push teambrookie/showrss;
-    fi
-  - if [ "$TRAVIS_BRANCH" == "develop" ]; then
-    docker login -u="$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
-    docker tag teambrookie/showrss teambrookie/showrss:experimental;
-    docker push teambrookie/showrss:experimental;
-    fi
+- CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o showrss .
+- docker build -t teambrookie/showrss .
+- if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u="$DOCKER_USERNAME" -p
+  "$DOCKER_PASSWORD"; docker push teambrookie/showrss; fi
+- if [ "$TRAVIS_BRANCH" == "develop" ]; then docker login -u="$DOCKER_USERNAME" -p
+  "$DOCKER_PASSWORD"; docker tag teambrookie/showrss teambrookie/showrss:experimental;
+  docker push teambrookie/showrss:experimental; fi
+before_install:
+- openssl aes-256-cbc -K $encrypted_56e2a09363c0_key -iv $encrypted_56e2a09363c0_iv
+  -in showrss_keyfile.json.enc -out showrss_keyfile.json -d
