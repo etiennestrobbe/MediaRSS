@@ -10,6 +10,7 @@ install:
 - go get github.com/boltdb/bolt
 - go get github.com/gorilla/feeds
 - go get github.com/zabawaba99/firego
+- go get cloud.google.com/go/storage
 after_success:
 - CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o showrss .
 - docker build -t teambrookie/showrss .

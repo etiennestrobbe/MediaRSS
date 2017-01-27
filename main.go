@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/feeds"
 	"github.com/teambrookie/showrss/betaseries"
 	"github.com/teambrookie/showrss/handlers"
 	"github.com/teambrookie/showrss/torrent"
@@ -19,12 +20,37 @@ import (
 
 	"strconv"
 
+	"cloud.google.com/go/storage"
 	"github.com/braintree/manners"
+	"golang.org/x/net/context"
+	"google.golang.org/api/option"
 )
 
 const version = "1.0.0"
 
-func torrentWorker(torrentJobs <-chan betaseries.Episode, firebase *firego.Firebase) {
+const bucket = "showrss-64e4b.appspot.com"
+const database = "https://showrss-64e4b.firebaseio.com"
+const keyfile = "showrss_keyfile.json"
+
+type Firebase struct {
+	client *storage.Client
+	*firego.Firebase
+}
+
+func NewFirebase(databaseSecret string) Firebase {
+	//Init Firebase connection to database
+	f := firego.New(database, nil)
+	f.Auth(databaseSecret)
+
+	//Init client to connect to google cloud storage
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, option.WithServiceAccountFile(keyfile))
+
+	firebase := Firebase{client, f}
+	return firebase
+}
+
+func torrentWorker(torrentJobs <-chan betaseries.Episode, firebase Firebase) {
 	for episode := range torrentJobs {
 		time.Sleep(2 * time.Second)
 		log.Println("Processing : " + episode.Name)
@@ -47,7 +73,7 @@ func torrentWorker(torrentJobs <-chan betaseries.Episode, firebase *firego.Fireb
 	}
 }
 
-func episodeWorker(users <-chan string, torrents chan<- betaseries.Episode, betaseries betaseries.EpisodeProvider, firebase *firego.Firebase) {
+func episodeWorker(users <-chan string, torrents chan<- betaseries.Episode, betaseries betaseries.EpisodeProvider, firebase Firebase) {
 	for user := range users {
 		tokenRef, _ := firebase.Ref(fmt.Sprintf("users/%s/token", user))
 		var token string
@@ -58,10 +84,7 @@ func episodeWorker(users <-chan string, torrents chan<- betaseries.Episode, beta
 
 			var data interface{}
 			torrentRef, _ := firebase.Ref(fmt.Sprintf("torrents/%d", episode.ID))
-			err := torrentRef.Value(&data)
-			if err != nil {
-				log.Println(err)
-			}
+			torrentRef.Value(&data)
 			if data == nil {
 				log.Println(episode.Name + " don't exist yet")
 				epRef, _ := firebase.Ref(fmt.Sprintf("episodes/%d", episode.ID))
@@ -79,10 +102,58 @@ func episodeWorker(users <-chan string, torrents chan<- betaseries.Episode, beta
 	}
 }
 
-func rssWorker(limiter <-chan time.Time) {
-	for {
-		<-limiter
-		log.Println("LOL")
+func (fire Firebase) getUserToken(userID string) string {
+	tokenRef, _ := fire.Ref(fmt.Sprintf("/users/%s/token", userID))
+	var token string
+	tokenRef.Value(&token)
+	return token
+}
+
+func (fire Firebase) getAllUsers() ([]string, error) {
+	usersRef, err := fire.Ref("users")
+	if err != nil {
+		return nil, err
+	}
+	var data map[string]interface{}
+	if err := usersRef.Value(&data); err != nil {
+		return nil, err
+	}
+	var users []string
+	for k := range data {
+		users = append(users, k)
+	}
+	return users, nil
+}
+
+func buildRSSFeed(userID string, firebase Firebase) {
+	log.Println("Building rss feed for " + userID)
+	now := time.Now()
+	feed := &feeds.Feed{
+		Title:       "ShowRSS by binou",
+		Link:        &feeds.Link{Href: "https://github.com/TeamBrookie/showrss"},
+		Description: "A list of torrent for your unseen Betaseries episodes",
+		Author:      &feeds.Author{Name: "Fabien Foerster", Email: "fabienfoerster@gmail.com"},
+		Created:     now,
+	}
+	var episodes []string
+	episodesRef, _ := firebase.Ref("/users/" + userID + "/episodes")
+	episodesRef.Value(&episodes)
+
+	for _, ep := range episodes {
+		torrentRef, _ := firebase.Ref("torrents/" + ep)
+		var torrent betaseries.Episode
+		torrentRef.Value(&torrent)
+		if torrent.MagnetLink == "" {
+			continue
+		}
+		description := fmt.Sprintf("<a href='%s'>MagnetLink</a>", torrent.MagnetLink)
+		item := &feeds.Item{
+			Title:       torrent.Name,
+			Link:        &feeds.Link{Href: torrent.MagnetLink},
+			Description: description,
+			Created:     torrent.LastModified,
+		}
+		feed.Add(item)
 	}
 }
 
@@ -106,8 +177,7 @@ func main() {
 	log.Printf("HTTP service listening on %s", *httpAddr)
 
 	//Firebase initialization
-	f := firego.New("https://showrss-64e4b.firebaseio.com", nil)
-	f.Auth(fireDatabaseSecret)
+	f := NewFirebase(fireDatabaseSecret)
 	// Worker stuff
 	log.Println("Starting worker ...")
 	betaseriesJobs := make(chan string, 100)
@@ -121,7 +191,17 @@ func main() {
 			rssLimiter <- t
 		}
 	}()
-	go rssWorker(rssLimiter)
+	go func() {
+		for {
+			<-rssLimiter
+			usersRef, _ := f.Ref("users")
+			var data map[string]interface{}
+			usersRef.Value(&data)
+			for k := range data {
+				go buildRSSFeed(k, f)
+			}
+		}
+	}()
 
 	errChan := make(chan error, 10)
 

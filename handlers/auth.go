@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/teambrookie/showrss/betaseries"
-	"github.com/zabawaba99/firego"
 )
 
 type AuthResponse struct {
@@ -15,7 +14,7 @@ type AuthResponse struct {
 
 type authHandler struct {
 	episodeProvider betaseries.EpisodeProvider
-	firebase        *firego.Firebase
+	firebase        Firebase
 }
 
 func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +44,7 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func AuthHandler(episodeProvider betaseries.EpisodeProvider, f *firego.Firebase) http.Handler {
+func AuthHandler(episodeProvider betaseries.EpisodeProvider, f Firebase) http.Handler {
 	return &authHandler{
 		episodeProvider: episodeProvider,
 		firebase:        f,
