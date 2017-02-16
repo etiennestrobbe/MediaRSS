@@ -19,6 +19,3 @@ after_success:
 - if [ "$TRAVIS_BRANCH" == "develop" ]; then docker login -u="$DOCKER_USERNAME" -p
   "$DOCKER_PASSWORD"; docker tag teambrookie/showrss teambrookie/showrss:experimental;
   docker push teambrookie/showrss:experimental; fi
-before_install:
-- openssl aes-256-cbc -K $encrypted_56e2a09363c0_key -iv $encrypted_56e2a09363c0_iv
-  -in showrss_keyfile.json.enc -out showrss_keyfile.json -d
