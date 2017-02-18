@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"log"
+
 	"github.com/teambrookie/showrss/betaseries"
+	"github.com/teambrookie/showrss/db"
 )
 
+// AuthResponse describe the respond issue after an authentification
 type AuthResponse struct {
 	Username string `json:"username"`
 	Token    string `json:"token"`
@@ -14,6 +18,7 @@ type AuthResponse struct {
 
 type authHandler struct {
 	episodeProvider betaseries.EpisodeProvider
+	db              db.DB
 }
 
 func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -29,17 +34,28 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+
 	response := AuthResponse{
 		Username: username,
 		Token:    token,
 	}
+
+	// Save the user and his token to Firebase RealTimeDatabase
+	go func() {
+		err := h.db.SaveUser(username, token)
+		if err != nil {
+			log.Printf("Error saving %s to the database : %s", username, err)
+		}
+	}()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 	return
 }
 
-func AuthHandler(episodeProvider betaseries.EpisodeProvider) http.Handler {
+//AuthHandler handle the connection of the user to Betaseries
+func AuthHandler(episodeProvider betaseries.EpisodeProvider, db db.DB) http.Handler {
 	return &authHandler{
 		episodeProvider: episodeProvider,
+		db:              db,
 	}
 }

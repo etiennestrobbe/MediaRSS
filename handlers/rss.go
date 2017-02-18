@@ -4,61 +4,38 @@ import (
 	"net/http"
 	"time"
 
-	"fmt"
+	"io"
 
-	"github.com/gorilla/feeds"
-	"github.com/teambrookie/showrss/betaseries"
-	"github.com/teambrookie/showrss/dao"
+	"github.com/teambrookie/showrss/db"
 )
 
 type rssHandler struct {
-	store           dao.EpisodeStore
-	episodeProvider betaseries.EpisodeProvider
+	database db.DB
 }
 
 func (h *rssHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "token must be set in query params", http.StatusNotAcceptable)
+	username := r.FormValue("username")
+
+	if username == "" {
+		http.Error(w, "empty login/password", http.StatusBadRequest)
 		return
 	}
 
-	now := time.Now()
-	feed := &feeds.Feed{
-		Title:       "ShowRSS by binou",
-		Link:        &feeds.Link{Href: "https://github.com/TeamBrookie/showrss"},
-		Description: "A list of torrent for your unseen Betaseries episodes",
-		Author:      &feeds.Author{Name: "Fabien Foerster", Email: "fabienfoerster@gmail.com"},
-		Created:     now,
-	}
-	episodes, err := h.episodeProvider.Episodes(token)
+	feed, err := h.database.GetUserFeed(username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	for _, ep := range episodes {
-		episode, err := h.store.GetEpisode(ep.Name)
-		if episode.MagnetLink == "" || err != nil {
-			continue
-		}
-		description := fmt.Sprintf("<a href='%s'>MagnetLink</a>", episode.MagnetLink)
-		item := &feeds.Item{
-			Title:       episode.Name,
-			Link:        &feeds.Link{Href: episode.MagnetLink},
-			Description: description,
-			Created:     episode.LastModified,
-		}
-		feed.Add(item)
-	}
-
-	w.Header().Set("Content-Type", "text/xml")
-	feed.WriteRss(w)
+	cacheUntil := time.Now().Add(1 * time.Hour).Format(http.TimeFormat)
+	w.Header().Set("Expires", cacheUntil)
+	io.Copy(w, feed)
 	return
 
 }
 
-func RSSHandler(store dao.EpisodeStore, episodeProvider betaseries.EpisodeProvider) http.Handler {
+//RSSHandler is responsible for returning the correct RSS feed to the user
+func RSSHandler(database db.DB) http.Handler {
 	return &rssHandler{
-		store:           store,
-		episodeProvider: episodeProvider,
+		database: database,
 	}
 }

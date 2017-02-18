@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/teambrookie/showrss/dao"
 )
 
 type betaseriesEpisodesResponse struct {
@@ -27,11 +25,12 @@ type betaseriesEpisodesResponse struct {
 	Errors []interface{} `json:"errors"`
 }
 
-func transformResponse(resp betaseriesEpisodesResponse) []dao.Episode {
-	var episodes []dao.Episode
+func transformResponse(resp betaseriesEpisodesResponse) []Episode {
+	var episodes []Episode
 	for _, show := range resp.Shows {
 		for _, unseen := range show.Unseen {
-			episode := dao.Episode{}
+			episode := Episode{}
+			episode.ID = unseen.ID
 			episode.Name = fmt.Sprintf("%s S%02dE%02d", unseen.Show.Title, unseen.Season, unseen.Episode)
 			episode.Code = unseen.Code
 			episode.ShowID = unseen.Show.TheTVDBID
@@ -44,7 +43,7 @@ func transformResponse(resp betaseriesEpisodesResponse) []dao.Episode {
 
 //Episodes retrieve your unseen episode from betaseries
 // and flatten the result so you have an array of Episode
-func (b Betaseries) Episodes(token string) ([]dao.Episode, error) {
+func (b Betaseries) Episodes(token string) ([]Episode, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://api.betaseries.com/episodes/list", nil)
 	if err != nil {

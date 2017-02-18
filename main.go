@@ -9,47 +9,21 @@ import (
 	"time"
 
 	"github.com/teambrookie/showrss/betaseries"
-	"github.com/teambrookie/showrss/dao"
+	"github.com/teambrookie/showrss/db"
 	"github.com/teambrookie/showrss/handlers"
-	"github.com/teambrookie/showrss/torrent"
+	"github.com/teambrookie/showrss/worker"
 
 	"flag"
 
 	"syscall"
-
-	"strconv"
 
 	"github.com/braintree/manners"
 )
 
 const version = "1.0.0"
 
-func worker(jobs <-chan dao.Episode, store dao.EpisodeStore) {
-	for episode := range jobs {
-		time.Sleep(2 * time.Second)
-		log.Println("Processing : " + episode.Name)
-		torrentLink, err := torrent.Search(strconv.Itoa(episode.ShowID), episode.Code, "720p")
-		log.Println("Result : " + torrentLink)
-		if err != nil {
-			log.Printf("Error processing %s : %s ...\n", episode.Name, err)
-			continue
-		}
-		if torrentLink == "" {
-			continue
-		}
-		episode.MagnetLink = torrentLink
-		episode.LastModified = time.Now()
-		err = store.UpdateEpisode(episode)
-		if err != nil {
-			log.Printf("Error saving %s to DB ...\n", episode.Name)
-		}
-
-	}
-}
-
 func main() {
 	var httpAddr = flag.String("http", "0.0.0.0:8000", "HTTP service address")
-	var dbAddr = flag.String("db", "showrss.db", "DB address")
 	flag.Parse()
 
 	apiKey := os.Getenv("BETASERIES_KEY")
@@ -61,32 +35,85 @@ func main() {
 
 	log.Println("Starting server ...")
 	log.Printf("HTTP service listening on %s", *httpAddr)
-	log.Println("Connecting to db ...")
 
-	//DB stuff
-	store, err := dao.InitDB(*dbAddr)
-	if err != nil {
-		log.Fatalln("Error connecting to DB")
-	}
-
-	err = store.CreateBucket("episodes")
-	if err != nil {
-		log.Fatalln("Error when creating bucket")
-	}
+	log.Println("Initializing DB ...")
+	db := db.Init()
 
 	// Worker stuff
 	log.Println("Starting worker ...")
-	jobs := make(chan dao.Episode, 1000)
-	go worker(jobs, store)
+	userQueue := make(chan string, 100)
+	episodeQueue := make(chan betaseries.Episode, 1000)
+	// go torrentWorker(torrentJobs, f)
+	// go episodeWorker(betaseriesJobs, torrentJobs, episodeProvider, f)
+
+	//Stuff for rss worker
+	rssLimiter := make(chan time.Time, 1)
+	go func() {
+		for t := range time.Tick(time.Second * 60) {
+			rssLimiter <- t
+		}
+	}()
+	go func() {
+		for {
+			<-rssLimiter
+			users, err := db.GetAllUsers()
+			if err != nil {
+				log.Println(err)
+			}
+			for _, user := range users {
+				go worker.RSS(user, &db)
+			}
+		}
+	}()
+
+	//Stuff for episode worker
+	go worker.Episodes(userQueue, episodeQueue, episodeProvider, &db)
+	episodeLimiter := make(chan time.Time, 1)
+	go func() {
+		for t := range time.Tick(time.Second * 30) {
+			episodeLimiter <- t
+		}
+	}()
+	go func() {
+		for {
+			<-episodeLimiter
+			users, err := db.GetAllUsers()
+			if err != nil {
+				log.Println(err)
+			}
+			for _, user := range users {
+				userQueue <- user
+			}
+		}
+	}()
+
+	//Stuff for torrent worker
+	go worker.Torrents(episodeQueue, &db)
+	torrentLimiter := make(chan time.Time, 1)
+	go func() {
+		for t := range time.Tick(time.Second * 15) {
+			torrentLimiter <- t
+		}
+	}()
+	go func() {
+		for {
+			<-torrentLimiter
+			episodes, err := db.GetNotFoundEpisodes()
+			log.Printf("Passing %d episode to torrent worker ...", len(episodes))
+			if err != nil {
+				log.Println("Error getting not found episodes from Firebase")
+			}
+			for _, ep := range episodes {
+				episodeQueue <- ep
+			}
+		}
+	}()
 
 	errChan := make(chan error, 10)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handlers.HelloHandler)
-	mux.Handle("/auth", handlers.AuthHandler(episodeProvider))
-	mux.Handle("/refresh", handlers.RefreshHandler(store, episodeProvider, jobs))
-	mux.Handle("/episodes", handlers.EpisodeHandler(store))
-	mux.Handle("/rss", handlers.RSSHandler(store, episodeProvider))
+	mux.Handle("/auth", handlers.AuthHandler(episodeProvider, db))
+	mux.Handle("/rss", handlers.RSSHandler(db))
 
 	httpServer := manners.NewServer()
 	httpServer.Addr = *httpAddr

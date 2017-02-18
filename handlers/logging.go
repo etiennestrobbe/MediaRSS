@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//LoggingHandler log everything that is happening http-wise
 func LoggingHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		format := "%s - - [%s] \"%s %s %s\" %s\n"
