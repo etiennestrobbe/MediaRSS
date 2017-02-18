@@ -155,15 +155,6 @@ func (db DB) SaveTorrentInfo(episodeID string, torrentInfo interface{}) error {
 	return err
 }
 
-//TorrentExists return true if the torrent exists
-func (db DB) TorrentExists(episodeID string) (bool, error) {
-	torrentRef, err := db.firebase.Ref(fmt.Sprintf("torrents/%s", episodeID))
-	if err != nil {
-		return false, err
-	}
-	return torrentRef.Exists()
-}
-
 // SaveUser save a user Data to firebase
 func (db DB) SaveUser(username, token string) error {
 	usersRef, err := db.firebase.Ref("users/" + username)
