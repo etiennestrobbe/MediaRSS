@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"log"
-
+	"github.com/golang/glog"
 	"github.com/teambrookie/showrss/betaseries"
 	"github.com/teambrookie/showrss/db"
 )
@@ -44,7 +43,7 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		err := h.db.SaveUser(username, token)
 		if err != nil {
-			log.Printf("Error saving %s to the database : %s", username, err)
+			glog.Errorf("Error saving %s to the database : %s", username, err)
 		}
 	}()
 	w.Header().Set("Content-Type", "application/json")

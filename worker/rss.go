@@ -2,18 +2,18 @@ package worker
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"io"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/feeds"
 	"github.com/teambrookie/showrss/db"
 )
 
 //RSS is a function that for a specified user generate his RSS feed and save it to Google Cloud storage
-func RSS(userID string, db *db.DB) {
-	log.Println("Building rss feed for " + userID)
+func RSS(userID string, db db.DB) {
+	log.Info("Building rss feed for " + userID)
 	now := time.Now()
 	feed := &feeds.Feed{
 		Title:       "ShowRSS by binou",
@@ -45,13 +45,13 @@ func RSS(userID string, db *db.DB) {
 		defer writer.Close()
 		err := feed.WriteRss(writer)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 	}()
 
 	err := db.SaveUserFeed(userID, reader)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 }

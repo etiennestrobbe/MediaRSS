@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/teambrookie/showrss/betaseries"
 	"github.com/teambrookie/showrss/db"
 	"github.com/teambrookie/showrss/handlers"
@@ -33,14 +33,14 @@ func main() {
 
 	episodeProvider := betaseries.Betaseries{ApiKey: apiKey}
 
-	log.Println("Starting server ...")
-	log.Printf("HTTP service listening on %s", *httpAddr)
+	log.Infoln("Starting server ...")
+	log.Infof("HTTP service listening on %s", *httpAddr)
 
-	log.Println("Initializing DB ...")
+	log.Infoln("Initializing DB ...")
 	db := db.Init()
 
 	// Worker stuff
-	log.Println("Starting worker ...")
+	log.Infoln("Starting worker ...")
 	userQueue := make(chan string, 100)
 	episodeQueue := make(chan betaseries.Episode, 1000)
 	// go torrentWorker(torrentJobs, f)
@@ -49,7 +49,7 @@ func main() {
 	//Stuff for rss worker
 	rssLimiter := make(chan time.Time, 1)
 	go func() {
-		for t := range time.Tick(time.Second * 60) {
+		for t := range time.Tick(time.Minute * 65) {
 			rssLimiter <- t
 		}
 	}()
@@ -58,19 +58,19 @@ func main() {
 			<-rssLimiter
 			users, err := db.GetAllUsers()
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 			}
 			for _, user := range users {
-				go worker.RSS(user, &db)
+				go worker.RSS(user, db)
 			}
 		}
 	}()
 
 	//Stuff for episode worker
-	go worker.Episodes(userQueue, episodeQueue, episodeProvider, &db)
+	go worker.Episodes(userQueue, episodeQueue, episodeProvider, db)
 	episodeLimiter := make(chan time.Time, 1)
 	go func() {
-		for t := range time.Tick(time.Second * 30) {
+		for t := range time.Tick(time.Minute * 30) {
 			episodeLimiter <- t
 		}
 	}()
@@ -79,7 +79,7 @@ func main() {
 			<-episodeLimiter
 			users, err := db.GetAllUsers()
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 			}
 			for _, user := range users {
 				userQueue <- user
@@ -88,10 +88,10 @@ func main() {
 	}()
 
 	//Stuff for torrent worker
-	go worker.Torrents(episodeQueue, &db)
+	go worker.Torrents(episodeQueue, db)
 	torrentLimiter := make(chan time.Time, 1)
 	go func() {
-		for t := range time.Tick(time.Second * 15) {
+		for t := range time.Tick(time.Hour * 1) {
 			torrentLimiter <- t
 		}
 	}()
@@ -99,9 +99,9 @@ func main() {
 		for {
 			<-torrentLimiter
 			episodes, err := db.GetNotFoundEpisodes()
-			log.Printf("Passing %d episode to torrent worker ...", len(episodes))
+			log.Infof("Passing %d episode to torrent worker ...", len(episodes))
 			if err != nil {
-				log.Println("Error getting not found episodes from Firebase")
+				log.Error("Error getting not found episodes from Firebase")
 			}
 			for _, ep := range episodes {
 				episodeQueue <- ep
@@ -133,7 +133,7 @@ func main() {
 				log.Fatal(err)
 			}
 		case s := <-signalChan:
-			log.Println(fmt.Sprintf("Captured %v. Exiting...", s))
+			log.Error(fmt.Sprintf("Captured %v. Exiting...", s))
 			httpServer.BlockingClose()
 			os.Exit(0)
 		}

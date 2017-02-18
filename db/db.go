@@ -5,11 +5,10 @@ import (
 	"os"
 	"time"
 
-	"log"
-
 	"io"
 
 	"cloud.google.com/go/storage"
+	log "github.com/Sirupsen/logrus"
 	"github.com/teambrookie/showrss/betaseries"
 	"github.com/zabawaba99/firego"
 	"golang.org/x/net/context"
@@ -41,7 +40,7 @@ type DB struct {
 func Init() DB {
 	fireDatabaseSecret := os.Getenv("FIREBASE_DATABASE_SECRET")
 	if fireDatabaseSecret == "" {
-		log.Fatalln("FIREBASE_DATABASE_SECRET must be set in env")
+		log.Errorln("FIREBASE_DATABASE_SECRET must be set in env")
 	}
 	//Init Firebase connection to database
 	f := firego.New(database, nil)
@@ -51,7 +50,7 @@ func Init() DB {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, option.WithServiceAccountFile(keyfile))
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 	db := DB{client, f}
 	return db

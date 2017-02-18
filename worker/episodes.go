@@ -1,9 +1,9 @@
 package worker
 
 import (
-	"log"
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/teambrookie/showrss/betaseries"
 	"github.com/teambrookie/showrss/db"
 )
@@ -12,10 +12,10 @@ import (
 // get for each user the list of unseen episodes using betaseries
 // and save that list to Firebase
 // and also send it to the Torrents function to get the torrent Info ( could change later on)
-func Episodes(users <-chan string, torrents chan<- betaseries.Episode, betaseries betaseries.EpisodeProvider, database *db.DB) {
+func Episodes(users <-chan string, torrents chan<- betaseries.Episode, betaseries betaseries.EpisodeProvider, database db.DB) {
 
 	for user := range users {
-		log.Println("Retriving episode for " + user)
+		log.Info("Retriving episode for " + user)
 		token := database.GetUserToken(user)
 		episodes, _ := betaseries.Episodes(token)
 		var ids []string
@@ -23,11 +23,11 @@ func Episodes(users <-chan string, torrents chan<- betaseries.Episode, betaserie
 			episodeID := strconv.Itoa(episode.ID)
 			torrent := database.GetTorrentInfo(episodeID)
 			if (torrent == db.Torrent{}) {
-				log.Println("Don't exists yet --> " + episode.Name)
+				log.Info("Don't exists yet --> " + episode.Name)
 				database.AddEpisode(episodeID, episode)
 				torrents <- episode
 			} else {
-				log.Println("Already exists dummy !!! --> " + episode.Name)
+				log.Info("Already exists dummy !!! --> " + episode.Name)
 			}
 
 			ids = append(ids, episodeID)
@@ -35,7 +35,7 @@ func Episodes(users <-chan string, torrents chan<- betaseries.Episode, betaserie
 		}
 		err := database.SetUserEpisodes(user, ids)
 		if err != nil {
-			log.Println("Error setting episodes for " + user)
+			log.Error("Error setting episodes for " + user)
 		}
 	}
 }
