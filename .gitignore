@@ -25,6 +25,7 @@ _testmain.go
 
 #Binaries
 showrss
+showrss.db
 
 #Firebase
 showrss_keyfile.json
