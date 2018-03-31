@@ -6,6 +6,8 @@ import (
 	torrentapi "github.com/qopher/go-torrentapi"
 )
 
+var audioQualities = []string{"DTS-HD.MA.7.1", "TrueHD.7.1Atmos", "DTS-HD", "DTS"}
+
 func filterMovies(torrents torrentapi.TorrentResults) string {
 	torrents = exclude3DMovies(torrents)
 	torrents = excludeNoSeeder(torrents)
@@ -18,50 +20,20 @@ func filterMovies(torrents torrentapi.TorrentResults) string {
 		}
 	}
 	var results torrentapi.TorrentResults
-	// Search on the movie that have the EXTENDED in the name
-	results = filteraudioQuality("DTS-HD.MA.7.1", moviesextended)
-	//log.Printf("For quality %s the number of result if %d", "DTS-HD.MA.7.1", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-	results = filteraudioQuality("TrueHD.7.1Atmos", moviesextended)
-	//log.Printf("For quality %s the number of result if %d", "TrueHD.7.1Atmos", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-	results = filteraudioQuality("DTS-HD", moviesextended)
-	//log.Printf("For quality %s the number of result if %d", "DTS-HD", len(results))
-	if len(results) > 0 {
-		return results[0].Download
+	for _, quality := range audioQualities {
+		results = filteraudioQuality(quality, moviesextended)
+		//log.Printf("For quality %s the number of result if %d", "DTS-HD.MA.7.1", len(results))
+		if len(results) > 0 {
+			return results[0].Download
+		}
 	}
 
-	results = filteraudioQuality("DTS", moviesextended)
-	//log.Printf("For quality %s the number of result if %d", "DTS", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-
-	// Search in everything else if not already find
-	results = filteraudioQuality("DTS-HD.MA.7.1", torrents)
-	//log.Printf("For quality %s the number of result if %d", "DTS-HD.MA.7.1", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-	results = filteraudioQuality("TrueHD.7.1Atmos", torrents)
-	//log.Printf("For quality %s the number of result if %d", "TrueHD.7.1Atmos", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-	results = filteraudioQuality("DTS-HD", torrents)
-	//log.Printf("For quality %s the number of result if %d", "DTS-HD", len(results))
-	if len(results) > 0 {
-		return results[0].Download
-	}
-
-	results = filteraudioQuality("DTS", torrents)
-	//log.Printf("For quality %s the number of result if %d", "DTS", len(results))
-	if len(results) > 0 {
-		return results[0].Download
+	for _, quality := range audioQualities {
+		results = filteraudioQuality(quality, torrents)
+		//log.Printf("For quality %s the number of result if %d", "DTS-HD.MA.7.1", len(results))
+		if len(results) > 0 {
+			return results[0].Download
+		}
 	}
 
 	return ""
