@@ -4,19 +4,19 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/teambrookie/MediaRSS/mediarss/db"
 	"github.com/teambrookie/MediaRSS/showrss/betaseries"
-	"github.com/teambrookie/MediaRSS/showrss/dao"
 )
 
 type refreshHandler struct {
-	store           dao.EpisodeStore
+	store           db.MediaStore
 	episodeProvider betaseries.EpisodeProvider
-	jobs            chan dao.Episode
+	jobs            chan db.Media
 }
 
-func (h *refreshHandler) saveAllEpisode(episodes []dao.Episode) error {
+func (h *refreshHandler) saveAllEpisode(episodes []db.Media) error {
 	for _, ep := range episodes {
-		err := h.store.AddEpisode(ep)
+		err := h.store.AddMedia(ep, db.NOTFOUND)
 		if err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func (h *refreshHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func RefreshHandler(store dao.EpisodeStore, epProvider betaseries.EpisodeProvider, jobs chan dao.Episode) http.Handler {
+func RefreshHandler(store db.MediaStore, epProvider betaseries.EpisodeProvider, jobs chan db.Media) http.Handler {
 	return &refreshHandler{
 		store:           store,
 		episodeProvider: epProvider,

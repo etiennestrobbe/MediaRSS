@@ -6,13 +6,13 @@ import (
 
 //Media is a generic type
 type Media struct {
-	ID         string      `json:"id"`
-	Name       string      `json:"name"`
-	Magnet     string      `json:"magnet"`
-	Seeds      int         `json:"seeds"`
-	Leechs     int         `json:"leechs"`
-	LastUpdate time.Time   `json:"last_update"`
-	Metadata   interface{} `json:"metadata"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Magnet     string    `json:"magnet"`
+	Seeds      int       `json:"seeds"`
+	Leechs     int       `json:"leechs"`
+	LastUpdate time.Time `json:"last_update"`
+	SearchTerm string    `json:"search_term"`
 }
 
 //MediaStore define the interface for retriving media

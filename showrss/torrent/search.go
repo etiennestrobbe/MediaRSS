@@ -1,8 +1,6 @@
 package torrent
 
 import (
-	"fmt"
-
 	"github.com/qopher/go-torrentapi"
 )
 
@@ -15,15 +13,14 @@ func goodEnoughTorrent(results torrentapi.TorrentResults) string {
 	return ""
 }
 
-func Search(showID string, episodeCode string, quality string) (string, error) {
+func Search(showID string, searchTerm string) (string, error) {
 	api, err := torrentapi.New("SHOWRSS")
 	if err != nil {
 		return "", err
 	}
-	searchString := fmt.Sprintf("%s %s", episodeCode, quality)
 	api.Format("json_extended")
 	api.SearchTVDB(showID)
-	api.SearchString(searchString)
+	api.SearchString(searchTerm)
 	results, err := api.Search()
 	if err != nil {
 		return "", err

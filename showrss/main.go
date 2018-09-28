@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/teambrookie/MediaRSS/mediarss/db"
 	"github.com/teambrookie/MediaRSS/showrss/betaseries"
 	"github.com/teambrookie/MediaRSS/showrss/dao"
 	"github.com/teambrookie/MediaRSS/showrss/handlers"
@@ -17,17 +18,15 @@ import (
 	"flag"
 
 	"syscall"
-
-	"strconv"
 )
 
 const version = "1.0.0"
 
-func worker(jobs <-chan dao.Episode, store dao.EpisodeStore) {
+func worker(jobs <-chan db.Media, store db.MediaStore) {
 	for episode := range jobs {
 		time.Sleep(2 * time.Second)
 		log.Println("Processing : " + episode.Name)
-		torrentLink, err := torrent.Search(strconv.Itoa(episode.ShowID), episode.Code, "720p")
+		torrentLink, err := torrent.Search(episode.ID, episode.SearchTerm)
 		log.Println("Result : " + torrentLink)
 		if err != nil {
 			log.Printf("Error processing %s : %s ...\n", episode.Name, err)
@@ -36,12 +35,14 @@ func worker(jobs <-chan dao.Episode, store dao.EpisodeStore) {
 		if torrentLink == "" {
 			continue
 		}
-		episode.MagnetLink = torrentLink
-		episode.LastModified = time.Now()
-		err = store.UpdateEpisode(episode)
+		episode.Magnet = torrentLink
+		episode.LastUpdate = time.Now()
+		err = store.UpdateMedia(episode, db.FOUND)
 		if err != nil {
 			log.Printf("Error saving %s to DB ...\n", episode.Name)
+			continue
 		}
+		store.DeleteMedia(episode.ID, db.NOTFOUND)
 
 	}
 }
@@ -63,14 +64,9 @@ func main() {
 	log.Println("Connecting to db ...")
 
 	//DB stuff
-	store, err := dao.InitDB(*dbAddr)
+	store, err := db.Open("showrss")
 	if err != nil {
 		log.Fatalln("Error connecting to DB")
-	}
-
-	err = store.CreateBucket("episodes")
-	if err != nil {
-		log.Fatalln("Error when creating bucket")
 	}
 
 	// Worker stuff
