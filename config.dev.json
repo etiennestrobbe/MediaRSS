@@ -1,0 +1,9 @@
+{
+    "users" : [{
+            "name": "fabienfoerster",
+            "token" : "truc",
+            "quality-pref": ["720p"],
+            "banned-keywords" : ["yolo"]
+        }
+    ]
+}

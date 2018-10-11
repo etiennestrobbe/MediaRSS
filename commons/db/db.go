@@ -4,15 +4,21 @@ import (
 	"time"
 )
 
+//Torrent is what i want it to be
+type Torrent struct {
+	Name       string `json:"name"`
+	MagnetLink string `json:"magnet_link"`
+	Seeds      int    `json:"seeds"`
+	Leechs     int    `json:"leechs"`
+}
+
 //Media is a generic type
 type Media struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	Magnet     string    `json:"magnet"`
-	Seeds      int       `json:"seeds"`
-	Leechs     int       `json:"leechs"`
-	LastUpdate time.Time `json:"last_update"`
-	SearchTerm string    `json:"search_term"`
+	ID         string      `json:"id"`
+	Name       string      `json:"name"`
+	Torrent    Torrent     `json:"torrent"`
+	LastUpdate time.Time   `json:"last_update"`
+	Metadata   interface{} `json:"metadata"`
 }
 
 //MediaStore define the interface for retriving media

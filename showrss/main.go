@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/teambrookie/MediaRSS/mediarss/db"
+	"github.com/teambrookie/MediaRSS/commons/db"
 	"github.com/teambrookie/MediaRSS/showrss/betaseries"
 	"github.com/teambrookie/MediaRSS/showrss/dao"
 	"github.com/teambrookie/MediaRSS/showrss/handlers"
