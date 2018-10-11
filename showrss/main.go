@@ -48,7 +48,6 @@ func worker(jobs <-chan db.Media, store db.MediaStore) {
 }
 
 func main() {
-	var httpAddr = flag.String("http", "0.0.0.0:8000", "HTTP service address")
 	var dbAddr = flag.String("db", "showrss.db", "DB address")
 	flag.Parse()
 
@@ -57,10 +56,15 @@ func main() {
 		log.Fatalln("BETASERIES_KEY must be set in env")
 	}
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+
 	episodeProvider := betaseries.Betaseries{APIKey: apiKey}
 
 	log.Println("Starting server ...")
-	log.Printf("HTTP service listening on %s", *httpAddr)
+	log.Printf("HTTP service listening on %s", port)
 	log.Println("Connecting to db ...")
 
 	//DB stuff
@@ -84,7 +88,7 @@ func main() {
 	mux.Handle("/rss", handlers.RSSHandler(store, episodeProvider))
 
 	httpServer := http.Server{}
-	httpServer.Addr = *httpAddr
+	httpServer.Addr = ":" + port
 	httpServer.Handler = handlers.LoggingHandler(mux)
 
 	go func() {
